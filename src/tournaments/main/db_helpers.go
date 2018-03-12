@@ -5,30 +5,109 @@ import (
 )
 
 func fetchTournament(id uint) (tournament *Tournament, err error) {
-	db.First(&tournament, id)
-	if tournament.ID == 0 {
+	tournament = &Tournament{}
+	if err = db.First(tournament, id).Error; err != nil {
+		logger.Println(err.Error())
+		return nil, errors.New("An error occured during tournament fetching")
+	}
+	if tournament == nil {
 		return nil, errors.New("Tournament not found")
 	}
 	return tournament, nil
 }
 
 func fetchBalance(id uint) (balance *UserPointsBalance, err error) {
-	db.Where(&UserPointsBalance{UserId: id}).First(&balance)
-	if balance.ID == 0 {
+	balance = &UserPointsBalance{}
+	if err = db.Where(&UserPointsBalance{UserId: id}).First(&balance).Error; err != nil {
+		logger.Println(err.Error())
+		return nil, errors.New("An error occured during Balance fetching")
+	}
+	if balance == nil {
 		return nil, errors.New("Balance not found")
 	}
 	return balance, nil
 }
 
 func fetchBalances(ids ...[]uint) (balances []*UserPointsBalance, err error) {
-	db.Where("UserId IN (?)", ids).Find(&balances)
+	if err = db.Where("UserId IN (?)", ids).Find(&balances).Error; err != nil {
+		logger.Println(err.Error())
+		return nil, errors.New("An error occured during Balances fetching")
+	}
 	if len(balances) == 0 {
 		return nil, errors.New("Balances not found")
 	}
 	return balances, nil
 }
 
-func joinTournamentAndTakePointsFromUserBalances(tournament *Tournament, joinTournamentRequest *JoinTournamentRequest) error {
+func topUpBalance(id uint, points int) (balance *UserPointsBalance, err error) {
+	balance = &UserPointsBalance{}
+	tx := db.Begin()
+
+	if err = tx.Where(&UserPointsBalance{UserId: id}).First(balance).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if balance == nil {
+		balance = &UserPointsBalance{
+			UserId:  id,
+			Balance: 0,
+		}
+	}
+	balance.Balance += points
+	operation := &UserPointsOperations{
+		UserId:        id,
+		OperationType: 1,
+		Sum:           points,
+	}
+	if err = tx.Save(balance).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err = tx.Create(operation).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	return balance, nil
+}
+
+func takeAwayBalance(id uint, points int) (balance *UserPointsBalance, err error) {
+	balance = &UserPointsBalance{}
+	tx := db.Begin()
+
+	if err = tx.Where(&UserPointsBalance{UserId: id}).First(balance).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if balance == nil || balance.Balance < points {
+		tx.Rollback()
+		return nil, errors.New(`Not enough points in user balance!`)
+	}
+	balance.Balance -= points
+	operation := &UserPointsOperations{
+		UserId:        id,
+		OperationType: 2,
+		Sum:           points,
+	}
+	if err = tx.Save(balance).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err = tx.Create(operation).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	return balance, nil
+}
+
+func joinTournamentAndTakePointsFromUserBalances(tournament *Tournament, joinTournamentRequest *JoinTournamentRequest) (err error) {
 	var (
 		stakeholderIds []uint
 		balances       []*UserPointsBalance
@@ -40,10 +119,13 @@ func joinTournamentAndTakePointsFromUserBalances(tournament *Tournament, joinTou
 
 	tx := db.Begin()
 
-	tx.Where("user_id IN (?)", stakeholderIds).Find(balances)
+	if err = tx.Where("user_id IN (?)", stakeholderIds).Find(balances).Error; err != nil {
+		logger.Println(err.Error())
+		return errors.New("An error occured during users' balances fetching")
+	}
 	if len(balances) == 0 {
 		tx.Rollback()
-		return errors.New("Balances not found")
+		return errors.New("Users' balances not found")
 	}
 
 	if len(balances) < len(stakeholderIds) {

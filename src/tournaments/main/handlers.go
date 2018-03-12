@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bckp/log"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,11 +25,13 @@ func getTournamentInfo(ctx *gin.Context) {
 	intId, err := strconv.Atoi(id)
 	if err != nil {
 		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect ID provided"))
+		logger.Println(err.Error())
 		return
 	}
 	tournament, err := fetchTournament(uint(intId))
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Tournament not found"})
+		logger.Println(err.Error())
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": tournament})
@@ -45,24 +46,80 @@ func getUserBalance(ctx *gin.Context) {
 	intId, err := strconv.Atoi(id)
 	if err != nil {
 		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect ID provided"))
+		logger.Println(err.Error())
 		return
 	}
 	balance, err := fetchBalance(uint(intId))
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Balance not found"})
+		logger.Println(err.Error())
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": balance})
 }
 
 func takePointsFromUser(ctx *gin.Context) {
-	//TODO(h.lazar) implement it!
-	ctx.Render(http.StatusOK, nil)
+	id := ctx.Query("playerId")
+	if id == "" {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect player ID provided"))
+		return
+	}
+	points := ctx.Query("points")
+	if points == "" {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect points value provided"))
+		return
+	}
+	intId, err := strconv.Atoi(id)
+	if err != nil {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect player ID provided"))
+		logger.Println(err.Error())
+		return
+	}
+	intPoints, err := strconv.Atoi(points)
+	if err != nil || intPoints <= 0 {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect points value provided"))
+		logger.Println(err.Error())
+		return
+	}
+	balance, err := takeAwayBalance(uint(intId), intPoints)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Balance not taken away"})
+		logger.Println(err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": balance})
 }
 
 func fundUserWithPoints(ctx *gin.Context) {
-	//TODO(h.lazar) implement it!
-	ctx.Render(http.StatusOK, nil)
+	id := ctx.Query("playerId")
+	if id == "" {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect player ID provided"))
+		return
+	}
+	points := ctx.Query("points")
+	if points == "" {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect points value provided"))
+		return
+	}
+	intId, err := strconv.Atoi(id)
+	if err != nil {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect player ID provided"))
+		logger.Println(err.Error())
+		return
+	}
+	intPoints, err := strconv.Atoi(points)
+	if err != nil || intPoints <= 0 {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect points value provided"))
+		logger.Println(err.Error())
+		return
+	}
+	balance, err := topUpBalance(uint(intId), intPoints)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Balance not replenished"})
+		logger.Println(err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": balance})
 }
 
 /**
@@ -71,15 +128,17 @@ requires "deposit" field,
 accepts "date" and "gameId", fills by default current date and 0 appropriately,
 responds 500 on error, 200 with full Tournament otherwise
 */
-func announceToutnament(ctx *gin.Context) {
+func announceTournament(ctx *gin.Context) {
 	var tournament Tournament
 	data, err := ioutil.ReadAll(ctx.Request.Body)
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, errors.New("Could not read request body"))
+		logger.Println(err.Error())
 		return
 	}
 	if err := json.Unmarshal(data, &tournament); err != nil {
 		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect request body provided"))
+		logger.Println(err.Error())
 		return
 	}
 	if tournament.Deposit <= 0 {
@@ -97,7 +156,10 @@ func announceToutnament(ctx *gin.Context) {
 	if tournament.GameId <= 0 {
 		tournament.GameId = 1
 	}
-	db.Save(tournament)
+	logger.Printf("Tournament to save: %#v", tournament)
+	if db.Save(&tournament).Error != nil {
+		logger.Println(err.Error())
+	}
 	if tournament.ID == 0 {
 		ctx.AbortWithError(http.StatusInternalServerError, errors.New("Could not announce tournament"))
 	}
@@ -121,10 +183,12 @@ func joinTournament(ctx *gin.Context) {
 	data, err := ioutil.ReadAll(ctx.Request.Body)
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, errors.New("Could not read request body"))
+		logger.Println(err.Error())
 		return
 	}
 	if err := json.Unmarshal(data, &parsedRequestBody); err != nil {
 		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect request body provided"))
+		logger.Println(err.Error())
 		return
 	}
 	// TODO (h.lazar) add a check to all users be unique (do not allow user to back himself)
@@ -136,7 +200,7 @@ func joinTournament(ctx *gin.Context) {
 	err = joinTournamentAndTakePointsFromUserBalances(tournament, &parsedRequestBody)
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "One or more participants consistency is not enough: "})
-		log.Error(err)
+		logger.Println(err.Error())
 		return
 	}
 
@@ -158,10 +222,12 @@ func resultTournament(ctx *gin.Context) {
 	data, err := ioutil.ReadAll(ctx.Request.Body)
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, errors.New("Could not read request body"))
+		logger.Println(err.Error())
 		return
 	}
 	if err := json.Unmarshal(data, &parsedRequestBody); err != nil {
 		ctx.AbortWithError(http.StatusBadRequest, errors.New("Incorrect request body provided"))
+		logger.Println(err.Error())
 		return
 	}
 	tournament, err := fetchTournament(parsedRequestBody.TournamentId)
@@ -173,7 +239,7 @@ func resultTournament(ctx *gin.Context) {
 	err = checkAndSpreadTournamentPrize(tournament, parsedRequestBody.Winners)
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "One or more participants consistency is not enough: "})
-		log.Error(err)
+		logger.Println(err.Error())
 		return
 	}
 

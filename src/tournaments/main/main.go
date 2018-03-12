@@ -3,13 +3,22 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"time"
 
-	"github.com/bckp/log"
+	"log"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
-var db *gorm.DB
+const LOG_PREFIX = `Tournaments `
+
+var (
+	db     *gorm.DB
+	logger *log.Logger
+)
 
 var conf struct {
 	dbhost string
@@ -21,42 +30,70 @@ var conf struct {
 }
 
 func init() {
-	flag.StringVar(&conf.dbhost, "db-host", "localhost", "Database host")
+	flag.StringVar(&conf.dbhost, "db-host", "postgres", "Database host")
 	flag.StringVar(&conf.dbport, "db-port", "5432", "Database port")
 	flag.StringVar(&conf.dbuser, "db-user", "postgres", "Database username")
 	flag.StringVar(&conf.dbpass, "db-pass", "changeit", "Database password")
 	flag.StringVar(&conf.dbname, "db-name", "mainbase", "Database name")
 	flag.StringVar(&conf.lsaddr, "listen-addr", ":8080", "Address to listen, like :8080")
+
+	logger = log.New(os.Stdout, LOG_PREFIX, log.Flags())
 }
 
 func main() {
-	var err error
+	var (
+		err                error
+		dbConnectionString string
+		connectionAttempts int
+	)
+
+	defer func() {
+		if db != nil {
+			err = db.Close()
+		}
+		if err != nil {
+			logger.Print(err.Error())
+		}
+	}()
 
 	flag.Parse()
 
-	db, err = gorm.Open("postgres", getConnectionString())
-	if err != nil {
-		log.Error(err)
-		panic("Could not connect to database!")
+	dbConnectionString = getConnectionString()
+
+	for {
+		db, err = gorm.Open("postgres", dbConnectionString)
+		if err == nil {
+			logger.Print(`DB Connection success!`)
+			break
+		}
+		logger.Print(err.Error())
+		connectionAttempts++
+		if connectionAttempts > 10 {
+			panic("Could not connect to database!")
+		}
+		time.Sleep(5 * time.Second)
 	}
+
 	autoMigrate()
 
 	// Let it use its Logger() && Recovery() by default
 	engine := gin.Default()
 	TournamentApi := engine.Group("/tournament/v0")
 	mountRoutes(TournamentApi)
-	engine.Run(conf.lsaddr)
+	err = engine.Run(conf.lsaddr)
+	if err != nil {
+		logger.Print(err.Error())
+	}
 }
 
 func getConnectionString() string {
 	// https://www.postgresql.org/docs/9.5/static/app-postgres.html
-	// Let's don't polish a DB connection string forming in this test task
-	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		&conf.dbhost,
-		&conf.dbport,
-		&conf.dbuser,
-		&conf.dbpass,
-		&conf.dbname,
+	return fmt.Sprintf("host=%#s port=%#s user=%#s password=%#s dbname=%#s sslmode=disable",
+		conf.dbhost,
+		conf.dbport,
+		conf.dbuser,
+		conf.dbpass,
+		conf.dbname,
 	)
 }
 
@@ -78,7 +115,7 @@ func mountRoutes(api *gin.RouterGroup) {
 	api.GET("/balance", getUserBalance)
 	api.POST("/take", takePointsFromUser)
 	api.POST("/fund", fundUserWithPoints)
-	api.POST("/announceToutnament", announceToutnament)
-	api.POST("/joinToutnament", joinTournament)
-	api.POST("/resultToutnament", resultTournament)
+	api.POST("/announceTournament", announceTournament)
+	api.POST("/joinTournament", joinTournament)
+	api.POST("/resultTournament", resultTournament)
 }
