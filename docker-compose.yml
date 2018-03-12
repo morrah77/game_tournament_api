@@ -1,9 +1,9 @@
-proxy:
+  tournaments:
     image: main
     restart: unless-stopped
     depends_on:
       - postgres
-    command: bash -c "sh /proj/bin/main --listen-addr :8080 --db-host localhost --db-port 5432 --db-user postgres --db-pass changeit --db-name main"
+    command: bash -c "sh /proj/bin/main --listen-addr :8080 --db-host postgres --db-port 5432 --db-user postgres --db-pass changeit --db-name main"
 
   postgres:
     image: postgres:9.6

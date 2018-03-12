@@ -1,2 +1,4 @@
 .idea/
-vendor/
+/src/tournaments/vendor/
+/bin
+/pkg

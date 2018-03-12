@@ -6,4 +6,4 @@ ENV GOPATH=/proj
 
 COPY ./ /proj/
 WORKDIR /proj
-RUN go install main
+RUN go install tournaments/...
