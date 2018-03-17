@@ -71,17 +71,66 @@ Before start manual testing please prefill DB by some users:
 
 Then it's possible to play with users' balances, tournaments && results with requests like following:
 
-curl -iv http://localhost:8080/tournament/v0/announceTournament -X POST -d '{"date":"2018-03-13T02:59:00Z","deposit":200,"game_id":1}' -H "Content-Type:application/json"
+`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=1`
 
-curl -iv http://localhost:8080/tournament/v0/info?id=1 -X GET
+`curl -iv -X POST http://localhost:8080/tournament/v0/user/fund -d '{"player_id":1,"points":100}' -H "Content-Type:application/json"`
 
-curl -iv http://localhost:8080/tournament/v0/balance?id=1 -X GET
+`curl -iv -X POST http://localhost:8080/tournament/v0/user/take -d '{"player_id":1,"points":100}' -H "Content-Type:application/json"`
 
-curl -iv http://localhost:8080/tournament/v0/fund -X POST -d '"playerId":1,"points":100' -H "Content-Type:application/json"
 
-curl -iv http://localhost:8080/tournament/v0/take -X POST -d '"playerId":1,"points":100' -H "Content-Type:application/json"
+`curl -iv -X POST http://localhost:8080/tournament/v0/tournament/announceTournament -d '{"date":"2018-03-18T00:59:00Z","deposit":200,"game_id":1}' -H "Content-Type:application/json"`
 
-curl -iv http://localhost:8080/tournament/v0/joinTournament -X POST -d '{"tournamentId"1,"playerId":1, "backerIds":[2,3,4]}' -H "Content-Type:application/json"
+`curl -iv -X GET http://localhost:8080/tournament/v0/tournament/list?limit=20\&offset=0`
 
-curl -iv http://localhost:8080/tournament/v0/resultTournament -X POST -d '{"tournamentId":1,"winners":[{"playerId":1,"prize":500}]}' -H "Content-Type:application/json"
+`curl -iv -X GET http://localhost:8080/tournament/v0/tournament/info?id=1`
 
+`curl -iv -X POST http://localhost:8080/tournament/v0/tournament/joinTournament -d '{"tournament_id":1,"player_id":1, "backer_ids":[2,3]}' -H "Content-Type:application/json"`
+
+`curl -iv -X POST http://localhost:8080/tournament/v0/tournament/resultTournament -d '{"tournament_id":1,"winners":[{"player_id":1,"prize":500}]}' -H "Content-Type:application/json"`
+
+####Manual test
+
+#####Fund users with balances
+
+`curl -iv -X POST http://localhost:8080/tournament/v0/user/fund -d '{"player_id":1,"points":300}' -H "Content-Type:application/json"`
+
+`curl -iv -X POST http://localhost:8080/tournament/v0/user/fund -d '{"player_id":2,"points":300}' -H "Content-Type:application/json"`
+
+`curl -iv -X POST http://localhost:8080/tournament/v0/user/fund -d '{"player_id":3,"points":300}' -H "Content-Type:application/json"`
+
+`curl -iv -X POST http://localhost:8080/tournament/v0/user/fund -d '{"player_id":4,"points":500}' -H "Content-Type:application/json"`
+
+`curl -iv -X POST http://localhost:8080/tournament/v0/user/fund -d '{"player_id":5,"points":1000}' -H "Content-Type:application/json"`
+
+#####Announce tournament with 1000 points deposit
+`curl -iv -X POST http://localhost:8080/tournament/v0/tournament/announceTournament -d '{"date":"2018-03-18T00:59:00Z","deposit":1000,"game_id":1}' -H "Content-Type:application/json"`
+
+#####User#5 joins tournament on his own
+
+`curl -iv -X POST http://localhost:8080/tournament/v0/tournament/joinTournament -d '{"tournament_id":1,"player_id":5}' -H "Content-Type:application/json"`
+
+#####User#1 joins tournament backed by users #2, #3, #4
+
+`curl -iv -X POST http://localhost:8080/tournament/v0/tournament/joinTournament -d '{"tournament_id":1,"player_id":1, "backer_ids":[2,3,4]}' -H "Content-Type:application/json"`
+
+#####User#1 wins tournament with 2000 points prize
+
+`curl -iv -X POST http://localhost:8080/tournament/v0/tournament/resultTournament -d '{"tournament_id":1,"winners":[{"player_id":1,"prize":2000}]}' -H "Content-Type:application/json"`
+
+#####Usser' balances check
+
+`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=1`
+
+Users #1,  #2, #3: 550 points expected
+
+`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=2`
+
+`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=3`
+
+`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=4`
+
+User #4: 750 points expected
+
+`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=5`
+
+User #5: 0 points expected

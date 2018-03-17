@@ -43,7 +43,8 @@ case "$1" in
       else
         docker stop tournaments-postgres
       fi ;;
-   prefill) docker exec -u postgres tournaments-postgres /usr/lib/postgresql/9.6/bin/psql -d main -c "insert into users (login, password) values('user1', 'pass1'), ('user2', 'pass2'), ('user3', 'pass3');" ;;
+   prefill) docker exec -u postgres tournaments-postgres /usr/lib/postgresql/9.6/bin/psql -d main -c "insert into users (login, password) values('user1', 'pass1'), ('user2', 'pass2'), ('user3', 'pass3'), ('user4', 'pass4'), ('user5', 'pass5');" ;;
+  drop) docker exec -u postgres tournaments-postgres /usr/lib/postgresql/9.6/bin/psql -c "DROP DATABASE IF EXISTS main;" ;;
   *) showhint ;;
 esac
 showfinstatus $?
