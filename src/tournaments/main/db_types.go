@@ -4,11 +4,16 @@ import (
 	"time"
 )
 
+const (
+	USER_POINTS_OPERATION_DEBT = iota
+	USER_POINTS_OPERATION_CREDIT
+)
+
 type Model struct {
-	ID        uint       `gorm:"primary_key" json:"id",omitempty`
-	CreatedAt time.Time  `json:"created_at",omitempty`
-	UpdatedAt time.Time  `json:"updated_at",omitempty`
-	DeletedAt *time.Time `sql:"index" json:"deleted_at",omitempty`
+	ID        uint       `gorm:"primary_key" json:"id,omitempty"`
+	CreatedAt time.Time  `json:"created_at,omitempty"`
+	UpdatedAt time.Time  `json:"updated_at,omitempty"`
+	DeletedAt *time.Time `sql:"index" json:"deleted_at,omitempty"`
 }
 
 type User struct {
@@ -22,6 +27,7 @@ type Tournament struct {
 	Date    time.Time `json:"date,omitempty"`
 	Deposit int       `json:"deposit"` // let's don't use float32 to bonus points!
 	GameId  int       `json:"game_id,omitempty"`
+	State   uint
 }
 
 type TournamentPlayer struct {

@@ -1,3 +1,9 @@
+// Copyright 2018 h.lazar. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+/*
+	Implements simple  social tournaments service with REST API
+*/
 package main
 
 import (
@@ -34,7 +40,7 @@ func init() {
 	flag.StringVar(&conf.dbport, "db-port", "5432", "Database port")
 	flag.StringVar(&conf.dbuser, "db-user", "postgres", "Database username")
 	flag.StringVar(&conf.dbpass, "db-pass", "changeit", "Database password")
-	flag.StringVar(&conf.dbname, "db-name", "mainbase", "Database name")
+	flag.StringVar(&conf.dbname, "db-name", "main", "Database name")
 	flag.StringVar(&conf.lsaddr, "listen-addr", ":8080", "Address to listen, like :8080")
 
 	logger = log.New(os.Stdout, LOG_PREFIX, log.Flags())
@@ -42,12 +48,14 @@ func init() {
 
 func main() {
 	var (
+		//stopChan           chan os.Signal
 		err                error
 		dbConnectionString string
 		connectionAttempts int
 	)
 
 	defer func() {
+		fmt.Printf("Deferred cleanup\n")
 		if db != nil {
 			err = db.Close()
 		}
@@ -55,6 +63,9 @@ func main() {
 			logger.Print(err.Error())
 		}
 	}()
+
+	//stopChan = make(chan os.Signal, 1)
+	//signal.Notify(stopChan)
 
 	flag.Parse()
 
@@ -84,6 +95,9 @@ func main() {
 	if err != nil {
 		logger.Print(err.Error())
 	}
+	//s := <-stopChan
+	//fmt.Printf("OS signal received: %#v\n", s)
+	return
 }
 
 func getConnectionString() string {
@@ -111,11 +125,15 @@ func autoMigrate() {
 }
 
 func mountRoutes(api *gin.RouterGroup) {
-	api.GET("/info", getTournamentInfo)
-	api.GET("/balance", getUserBalance)
-	api.POST("/take", takePointsFromUser)
-	api.POST("/fund", fundUserWithPoints)
-	api.POST("/announceTournament", announceTournament)
-	api.POST("/joinTournament", joinTournament)
-	api.POST("/resultTournament", resultTournament)
+	apiUser := api.Group("/user")
+	apiUser.GET("/balance", getUserBalance)
+	apiUser.POST("/take", takePointsFromUser)
+	apiUser.POST("/fund", fundUserWithPoints)
+
+	apiTournament := api.Group("/tournament")
+	apiTournament.GET("/list", getTournaments)
+	apiTournament.GET("/info", getTournamentInfo)
+	apiTournament.POST("/announceTournament", announceTournament)
+	apiTournament.POST("/joinTournament", joinTournament)
+	apiTournament.POST("/resultTournament", resultTournament)
 }
