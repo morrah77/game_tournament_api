@@ -1,5 +1,5 @@
 showhint () {
-  echo "Please provide a command from list [setup|dep|build|install|run|stop|prefill] [options]"
+  echo "Please provide a command from list [setup|dep|build|install|run|stop|prefill|drop] [options]"
   echo "options for 'build', 'run' and 'stop' are [docker]"
     exit 0
 }
