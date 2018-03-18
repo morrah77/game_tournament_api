@@ -1,15 +1,15 @@
 #Test task for Go developer
 
-Implement simple game tournament API
+Implement simple game tournament API (see brief at  [./documents](./documents) )
 
 ##About structure
-to have an ability to store some infrastructure entities inside of project directory, project contains its own `src` directory.
+To have an ability to store some infrastructure entities inside of project directory, project contains its own `src` directory.
 
 Due to simplest implementation (GORM + gin under the hood) contains just one package `main`.
 
 For conveniency contains main control script (POSIX sh only, not for Win-like OSes) supporting a few important commands.
 
-##build project
+##Build project
 
 `./control.sh dep && ./control.sh build`
 
@@ -41,7 +41,7 @@ or
 
 `docker-compose -p tournaments up -d`
 
-#Stop project
+##Stop project
 
 if runs locally
 
@@ -119,18 +119,18 @@ Then it's possible to play with users' balances, tournaments && results with req
 
 #####Usser' balances check
 
-`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=1`
-
 Users #1,  #2, #3: 550 points expected
+
+`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=1`
 
 `curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=2`
 
 `curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=3`
 
-`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=4`
-
 User #4: 750 points expected
 
-`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=5`
+`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=4`
 
 User #5: 0 points expected
+
+`curl -iv -X GET http://localhost:8080/tournament/v0/user/balance?id=5`
