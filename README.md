@@ -5,7 +5,8 @@ Implement simple game tournament API (see brief at  [./documents](./documents) )
 ##About structure
 To have an ability to store some infrastructure entities inside of project directory, project contains its own `src` directory.
 
-Due to simplest implementation (GORM + gin under the hood) contains just one package `main`.
+Contains several packages `main`, `storage`, `api`. 
+Due to simplest implementation (GORM + gin under the hood) could contain just one package `main` though.
 
 For conveniency contains main control script (POSIX sh only, not for Win-like OSes) supporting a few important commands.
 
@@ -57,9 +58,9 @@ or
 
 ##Test
 
-Due to simple implementation I didn't found a place for common unit tests (it seems rather inconvenient to test such way executable package), just a manual testing is possible for now.
+Due to simple implementation I didn't implement common unit tests, just a manual testing is possible for now.
 
-Probably `main` package should be divided to main && auxiliary ones, so, it'd be a good point to cover aux. package by unit tests.
+Because for now `main` package is separated to `main` && auxiliary ones, so, it'd be a good point to cover aux. packages `storage`, `api` by unit tests.
 
 Of course, it's possible to automate end-to-end testing using any appropriate test framework like Geb (it's on Groovy, but for black-box testing via network it doesn't mind) or even make a bash script calling curl commands && matching responses to expectations, but it seems being out of this task bounds.
 

@@ -1,16 +1,89 @@
-package main
+package storage
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+
+	"github.com/morrah77/go-developer-test-task-2/src/tournaments/api/types"
 )
 
-func fetchTournament(id uint) (tournament *Tournament, err error) {
-	tournament = &Tournament{}
-	if err = db.First(tournament, id).Error; err != nil {
+const MAX_CONNECTION_ATTEMPTS = 10
+const CONNECTION_ATTEMPTS_INTERVAL_SECONDS = 5
+
+type DsnColfig struct {
+	DbHost string
+	DbPort string
+	DbUser string
+	DbPass string
+	DbName string
+}
+
+type Storage struct {
+	db     *gorm.DB
+	logger *log.Logger
+}
+
+func NewStorage(conf *DsnColfig, logger *log.Logger) (interface{}, error) {
+	var (
+		db  *gorm.DB
+		err error
+		dsn string
+	)
+	dsn = getConnectionString(conf)
+	connectionAttempts := 0
+	for {
+		db, err = gorm.Open("postgres", dsn)
+		if err == nil {
+			logger.Print(`DB Connection success!`)
+			break
+		}
+		logger.Print(err.Error())
+		connectionAttempts++
+		if connectionAttempts > MAX_CONNECTION_ATTEMPTS {
+			return nil, errors.New("Could not connect to database!")
+		}
+		time.Sleep(CONNECTION_ATTEMPTS_INTERVAL_SECONDS * time.Second)
+	}
+	s := &Storage{
+		db:     db,
+		logger: logger,
+	}
+	s.autoMigrate()
+	return s, nil
+}
+
+func (s *Storage) Close() error {
+	if s.db == nil {
+		return nil
+	}
+	return s.db.Close()
+}
+
+func (s *Storage) autoMigrate() {
+	s.db.AutoMigrate(
+		&User{},
+		&UserAuth{},
+		&types.Tournament{},
+		&TournamentPlayer{},
+		&TournamentBacker{},
+		&TournamentWinner{},
+		&UserPointsOperations{},
+		&types.UserPointsBalance{},
+	)
+}
+
+func (s *Storage) FetchTournament(id uint) (interface{}, error) {
+	var (
+		tournament *types.Tournament
+		err        error
+	)
+	tournament = &types.Tournament{}
+	if err = s.db.First(tournament, id).Error; err != nil {
 		return nil, errors.New("An error occured during tournament fetching")
 	}
 	if tournament == nil {
@@ -19,9 +92,13 @@ func fetchTournament(id uint) (tournament *Tournament, err error) {
 	return tournament, nil
 }
 
-func fetchTournaments(limit, offset int) (tournaments []*Tournament, err error) {
-	tournaments = []*Tournament{}
-	if err = db.Debug().Limit(limit).Offset(offset).Find(&tournaments).Error; err != nil {
+func (s *Storage) FetchTournaments(limit, offset int) (interface{}, error) {
+	var (
+		tournaments []*types.Tournament
+		err         error
+	)
+	tournaments = []*types.Tournament{}
+	if err = s.db.Debug().Limit(limit).Offset(offset).Find(&tournaments).Error; err != nil {
 		return nil, errors.New("An error occured during tournaments fetching")
 	}
 	if len(tournaments) == 0 {
@@ -30,9 +107,13 @@ func fetchTournaments(limit, offset int) (tournaments []*Tournament, err error) 
 	return tournaments, nil
 }
 
-func fetchBalance(id uint) (balance *UserPointsBalance, err error) {
-	balance = &UserPointsBalance{}
-	if err = db.Where(&UserPointsBalance{UserId: id}).First(&balance).Error; err != nil {
+func (s *Storage) FetchBalance(id uint) (interface{}, error) {
+	var (
+		balance *types.UserPointsBalance
+		err     error
+	)
+	balance = &types.UserPointsBalance{}
+	if err = s.db.Where(&types.UserPointsBalance{UserId: id}).First(&balance).Error; err != nil {
 		return nil, errors.New("An error occured during Balance fetching")
 	}
 	if balance == nil {
@@ -41,26 +122,30 @@ func fetchBalance(id uint) (balance *UserPointsBalance, err error) {
 	return balance, nil
 }
 
-func finishTransaction(tx *gorm.DB, err error) {
+func (s *Storage) finishTransaction(tx *gorm.DB, err error) {
 	if err != nil {
-		logger.Printf("Rollback transaction due to error %#v\n", err.Error())
+		s.logger.Printf("Rollback transaction due to error %#v\n", err.Error())
 		if rbErr := tx.Rollback().Error; rbErr != nil {
-			logger.Printf("An error occured duting transaction rollback: %s", rbErr.Error())
+			s.logger.Printf("An error occured duting transaction rollback: %s", rbErr.Error())
 		}
-		logger.Println("Transaction rolled back successfully")
+		s.logger.Println("Transaction rolled back successfully")
 	}
 }
 
-func topUpBalance(id uint, points int) (balance *UserPointsBalance, err error) {
-	balance = &UserPointsBalance{}
-	tx := db.Begin()
-	defer func() { finishTransaction(tx, err) }()
+func (s *Storage) TopUpBalance(id uint, points int) (interface{}, error) {
+	var (
+		balance *types.UserPointsBalance
+		err     error
+	)
+	balance = &types.UserPointsBalance{}
+	tx := s.db.Begin()
+	defer func() { s.finishTransaction(tx, err) }()
 
-	if err = tx.FirstOrInit(balance, &UserPointsBalance{UserId: id}).Error; err != nil {
+	if err = tx.FirstOrInit(balance, &types.UserPointsBalance{UserId: id}).Error; err != nil {
 		return nil, err
 	}
 	if balance == nil {
-		balance = &UserPointsBalance{
+		balance = &types.UserPointsBalance{
 			UserId:  id,
 			Balance: 0,
 		}
@@ -83,12 +168,16 @@ func topUpBalance(id uint, points int) (balance *UserPointsBalance, err error) {
 	return balance, nil
 }
 
-func takeAwayBalance(id uint, points int) (balance *UserPointsBalance, err error) {
-	balance = &UserPointsBalance{}
-	tx := db.Begin()
-	defer func() { finishTransaction(tx, err) }()
+func (s *Storage) TakeAwayBalance(id uint, points int) (interface{}, error) {
+	var (
+		balance *types.UserPointsBalance
+		err     error
+	)
+	balance = &types.UserPointsBalance{}
+	tx := s.db.Begin()
+	defer func() { s.finishTransaction(tx, err) }()
 
-	if err = tx.FirstOrInit(balance, &UserPointsBalance{UserId: id}).Error; err != nil {
+	if err = tx.FirstOrInit(balance, &types.UserPointsBalance{UserId: id}).Error; err != nil {
 		return nil, err
 	}
 	if balance == nil || balance.Balance < points {
@@ -112,25 +201,25 @@ func takeAwayBalance(id uint, points int) (balance *UserPointsBalance, err error
 	return balance, nil
 }
 
-func createNewTournament(announceTournamentRequest *AnnounceTournamentRequest) (err error, tournament *Tournament) {
+func (s *Storage) CreateNewTournament(announceTournamentRequest *types.AnnounceTournamentRequest) (interface{}, error) {
 	// TODO(h.lazar) add game IDs somethere
 	if announceTournamentRequest.GameId <= 0 {
 		announceTournamentRequest.GameId = 1
 	}
-	tournament = &Tournament{
+	tournament := &types.Tournament{
 		Deposit: announceTournamentRequest.Deposit,
 		Date:    announceTournamentRequest.Date,
 		GameId:  announceTournamentRequest.GameId,
 	}
-	err = db.Save(tournament).Error
-	return err, tournament
+	err := s.db.Save(tournament).Error
+	return tournament, err
 }
 
-func joinTournamentAndTakePointsFromUserBalances(joinTournamentRequest *JoinTournamentRequest) (err error) {
+func (s *Storage) JoinTournamentAndTakePointsFromUserBalances(joinTournamentRequest *types.JoinTournamentRequest) (err error) {
 	var (
-		tournament     *Tournament
+		tournament     *types.Tournament
 		stakeholderIds []uint
-		balances       []*UserPointsBalance
+		balances       []*types.UserPointsBalance
 	)
 
 	stakeholderIds = make([]uint, 0)
@@ -142,12 +231,12 @@ func joinTournamentAndTakePointsFromUserBalances(joinTournamentRequest *JoinTour
 		return err
 	}
 
-	tx := db.Begin()
+	tx := s.db.Begin()
 	//tx.LogMode(true)
-	defer func() { finishTransaction(tx, err) }()
+	defer func() { s.finishTransaction(tx, err) }()
 
 	// TODO (h.lazar) add a check to all users be unique (do not allow user to back himself)
-	tournament = &Tournament{}
+	tournament = &types.Tournament{}
 	if err = tx.First(tournament, joinTournamentRequest.TournamentId).Error; err != nil {
 		return err
 	}
@@ -166,7 +255,7 @@ func joinTournamentAndTakePointsFromUserBalances(joinTournamentRequest *JoinTour
 	}
 
 	stake := tournament.Deposit / stakesCount
-	balances = []*UserPointsBalance{}
+	balances = []*types.UserPointsBalance{}
 
 	if err = tx.Where("user_id IN (?)", stakeholderIds).Find(&balances).Error; err != nil {
 		return err
@@ -224,20 +313,20 @@ func joinTournamentAndTakePointsFromUserBalances(joinTournamentRequest *JoinTour
 	return nil
 }
 
-func checkAndSpreadTournamentPrize(resultTournamentRequest *ResultTournamentRequest) (err error) {
+func (s *Storage) CheckAndSpreadTournamentPrize(resultTournamentRequest *types.ResultTournamentRequest) (err error) {
 	var (
-		tournament        *Tournament
-		balances          []*UserPointsBalance
+		tournament        *types.Tournament
+		balances          []*types.UserPointsBalance
 		tournamentPlayer  *TournamentPlayer
 		tournamentBackers []*TournamentBacker
 		stakeholderIds    []uint
 	)
 
-	tx := db.Begin()
+	tx := s.db.Begin()
 	//tx.LogMode(true)
-	defer func() { finishTransaction(tx, err) }()
+	defer func() { s.finishTransaction(tx, err) }()
 
-	tournament = &Tournament{}
+	tournament = &types.Tournament{}
 	if err = tx.First(tournament, resultTournamentRequest.TournamentId).Error; err != nil {
 		return err
 	}
@@ -287,7 +376,7 @@ func checkAndSpreadTournamentPrize(resultTournamentRequest *ResultTournamentRequ
 			stakeholderIds = append(stakeholderIds, backer.BackerId)
 		}
 
-		balances = []*UserPointsBalance{}
+		balances = []*types.UserPointsBalance{}
 
 		if err = tx.Where("user_id IN (?)", stakeholderIds).Find(&balances).Error; err != nil {
 			return err
@@ -310,7 +399,7 @@ func checkAndSpreadTournamentPrize(resultTournamentRequest *ResultTournamentRequ
 				return err
 			}
 			if err = tx.Model(balance).Update(
-				&UserPointsBalance{
+				&types.UserPointsBalance{
 					Balance: balance.Balance + stake,
 				}).Error; err != nil {
 				return err
@@ -318,7 +407,7 @@ func checkAndSpreadTournamentPrize(resultTournamentRequest *ResultTournamentRequ
 		}
 	}
 
-	if err = tx.Model(tournament).Update(&Tournament{State: 1}).Error; err != nil {
+	if err = tx.Model(tournament).Update(&types.Tournament{State: 1}).Error; err != nil {
 		return err
 	}
 
@@ -326,4 +415,15 @@ func checkAndSpreadTournamentPrize(resultTournamentRequest *ResultTournamentRequ
 		return err
 	}
 	return nil
+}
+
+func getConnectionString(conf *DsnColfig) string {
+	// https://www.postgresql.org/docs/9.5/static/app-postgres.html
+	return fmt.Sprintf("host=%#s port=%#s user=%#s password=%#s dbname=%#s sslmode=disable",
+		conf.DbHost,
+		conf.DbPort,
+		conf.DbUser,
+		conf.DbPass,
+		conf.DbName,
+	)
 }

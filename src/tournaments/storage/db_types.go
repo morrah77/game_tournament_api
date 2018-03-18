@@ -1,4 +1,4 @@
-package main
+package storage
 
 import (
 	"time"
@@ -22,13 +22,13 @@ type User struct {
 	Password string `json:"password"`
 }
 
-type Tournament struct {
-	Model
-	Date    time.Time `json:"date,omitempty"`
-	Deposit int       `json:"deposit"` // let's don't use float32 to bonus points!
-	GameId  int       `json:"game_id,omitempty"`
-	State   uint
-}
+//type Tournament struct {
+//	Model
+//	Date    time.Time `json:"date,omitempty"`
+//	Deposit int       `json:"deposit"` // let's don't use float32 to bonus points!
+//	GameId  int       `json:"game_id,omitempty"`
+//	State   uint
+//}
 
 type TournamentPlayer struct {
 	Model
@@ -64,8 +64,8 @@ type UserPointsOperations struct {
 	Sum           int
 }
 
-type UserPointsBalance struct {
-	Model
-	UserId  uint
-	Balance int
-}
+//type UserPointsBalance struct {
+//	Model
+//	UserId  uint
+//	Balance int
+//}

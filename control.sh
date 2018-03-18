@@ -25,7 +25,7 @@ case "$1" in
       docker build -f Dockerfile .
     else
       rm -rf bin/*
-      go build -o bin/tournaments tournaments/...
+      go build -o bin/tournaments tournaments/main
     fi ;;
   install) go install tournaments/... ;;
   run)
