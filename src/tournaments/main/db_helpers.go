@@ -143,7 +143,7 @@ func joinTournamentAndTakePointsFromUserBalances(joinTournamentRequest *JoinTour
 	}
 
 	tx := db.Begin()
-	tx.LogMode(true)
+	//tx.LogMode(true)
 	defer func() { finishTransaction(tx, err) }()
 
 	// TODO (h.lazar) add a check to all users be unique (do not allow user to back himself)
@@ -234,13 +234,14 @@ func checkAndSpreadTournamentPrize(resultTournamentRequest *ResultTournamentRequ
 	)
 
 	tx := db.Begin()
-	tx.LogMode(true)
+	//tx.LogMode(true)
 	defer func() { finishTransaction(tx, err) }()
 
 	tournament = &Tournament{}
 	if err = tx.First(tournament, resultTournamentRequest.TournamentId).Error; err != nil {
 		return err
 	}
+	//TODO(h.lazar) commented just for testing conveniency. To be uncommented
 	//if tournament.Date.After(time.Now()) {
 	//	err = errors.New(`Tournament still did not started!`)
 	//	return err
