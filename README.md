@@ -103,7 +103,7 @@ Then it's possible to play with users' balances, tournaments && results with req
 `curl -iv -X POST http://localhost:8080/tournament/v0/user/fund -d '{"player_id":5,"points":1000}' -H "Content-Type:application/json"`
 
 #####Announce tournament with 1000 points deposit
-`curl -iv -X POST http://localhost:8080/tournament/v0/tournament/announceTournament -d '{"date":"2018-03-18T00:59:00Z","deposit":1000,"game_id":1}' -H "Content-Type:application/json"`
+`curl -iv -X POST http://localhost:8080/tournament/v0/tournament/announceTournament -d '{"date":"2018-03-19T00:59:00Z","deposit":1000,"game_id":1}' -H "Content-Type:application/json"`
 
 #####User#5 joins tournament on his own
 

@@ -213,11 +213,7 @@ func joinTournamentAndTakePointsFromUserBalances(joinTournamentRequest *JoinTour
 			}).Error; err != nil {
 			return err
 		}
-		//TODO(h.lazar) fix player's balance left unchanged whet no backers
-		if err = tx.Model(balance).Update(
-			&UserPointsBalance{
-				Balance: balance.Balance - stake,
-			}).Error; err != nil {
+		if err = tx.Model(balance).Update(`balance`, balance.Balance-stake).Error; err != nil {
 			return err
 		}
 	}
