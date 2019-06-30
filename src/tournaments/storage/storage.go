@@ -9,7 +9,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 
-	"github.com/morrah77/go-developer-test-task-2/src/tournaments/api/types"
+	"github.com/morrah77/game_tournament_api/src/tournaments/api/types"
 )
 
 const MAX_CONNECTION_ATTEMPTS = 10

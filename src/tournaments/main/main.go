@@ -14,8 +14,8 @@ import (
 
 	"log"
 
-	"github.com/morrah77/go-developer-test-task-2/src/tournaments/api"
-	"github.com/morrah77/go-developer-test-task-2/src/tournaments/storage"
+	"github.com/morrah77/game_tournament_api/src/tournaments/api"
+	"github.com/morrah77/game_tournament_api/src/tournaments/storage"
 )
 
 const LOG_PREFIX = `Tournaments `

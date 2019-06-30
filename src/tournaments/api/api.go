@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
-	"github.com/morrah77/go-developer-test-task-2/src/tournaments/api/types"
+	"github.com/morrah77/game_tournament_api/src/tournaments/api/types"
 )
 
 type ApiConf struct {
